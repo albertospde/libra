@@ -667,37 +667,62 @@ async function eliminaSezione(tabella, id){
   renderAdminSezioniList();
 }
 
+const PDF_BUCKET_URL = 'https://pvsoijmopdqozvutgtdm.supabase.co/storage/v1/object/public/giro-pdf/';
+function coverUrl(ean){ return `https://www.ibs.it/images/${ean}_0_0_0_300_75.jpg`; }
+
 async function renderTitoliAdmin(tipo, sezioneId){
   const { data: titoli } = await sb.from('titoli').select('*').eq('sezione_tipo', tipo).eq('sezione_id', sezioneId).order('titolo');
   const cont = document.getElementById('titoli-admin-'+sezioneId);
   if(!cont) return;
+  const isGiro = tipo === 'giro';
   cont.innerHTML = `
     <table>
-      <thead><tr><th>EAN</th><th>Titolo</th><th>Editore</th><th>Prezzo</th><th></th></tr></thead>
+      <thead><tr><th>EAN</th><th></th><th>Titolo</th><th>Autore</th><th>Editore</th><th>Prezzo</th><th>Note</th><th>Gemelli</th><th></th></tr></thead>
       <tbody>
         ${(titoli||[]).map(t=>`<tr>
-          <td>${esc(t.ean)}</td><td>${esc(t.titolo)}</td><td>${esc(t.editore||'-')}</td><td>${t.prezzo?'€ '+Number(t.prezzo).toFixed(2):'-'}</td>
+          <td>${esc(t.ean)}</td>
+          <td>${isGiro
+            ? `<button class="ghost small" title="Apri PDF" onclick="window.open('${PDF_BUCKET_URL}${encodeURIComponent(t.ean)}.pdf','_blank')">📄</button>`
+            : `<img src="${coverUrl(t.ean)}" alt="" style="width:28px;height:40px;object-fit:cover;border-radius:3px;box-shadow:0 1px 3px rgba(0,0,0,.25)" onerror="this.replaceWith(Object.assign(document.createElement('span'),{textContent:'📕',style:'font-size:20px'}))">`
+          }</td>
+          <td>${esc(t.titolo)}</td>
+          <td>${esc(t.autore||'-')}</td>
+          <td>${esc(t.editore||'-')}</td>
+          <td>${t.prezzo?'€ '+Number(t.prezzo).toFixed(2):'-'}</td>
+          <td>${esc(t.note||'-')}</td>
+          <td>${esc(t.gemelli||'-')}</td>
           <td><button class="ghost small" onclick="eliminaTitolo('${t.id}','${tipo}','${sezioneId}')">Elimina</button></td>
         </tr>`).join('')}
         <tr>
           <td><input id="nt-ean-${sezioneId}" placeholder="EAN"></td>
+          <td></td>
           <td><input id="nt-titolo-${sezioneId}" placeholder="Titolo"></td>
+          <td><input id="nt-autore-${sezioneId}" placeholder="Autore"></td>
           <td><input id="nt-editore-${sezioneId}" placeholder="Editore"></td>
           <td><input id="nt-prezzo-${sezioneId}" placeholder="€" type="number" step="0.01"></td>
+          <td><input id="nt-note-${sezioneId}" placeholder="Note"></td>
+          <td><input id="nt-gemelli-${sezioneId}" placeholder="Gemelli"></td>
           <td><button class="primary small" onclick="aggiungiTitolo('${tipo}','${sezioneId}')">+ Aggiungi</button></td>
         </tr>
       </tbody>
     </table>
-    <p style="font-size:12px;color:var(--testo-lieve);margin:8px 0 0">Suggerimento: per import massivi di titoli possiamo costruire un caricamento da Excel, come nelle altre app PDE.</p>
+    ${isGiro
+      ? `<p style="font-size:12px;color:var(--testo-lieve);margin:8px 0 0">Il tasto 📄 apre il PDF corrispondente. Carica i PDF su Supabase → Storage → bucket <b>giro-pdf</b>, rinominandoli esattamente come l'EAN (es. <code>9788807970207.pdf</code>).</p>`
+      : `<p style="font-size:12px;color:var(--testo-lieve);margin:8px 0 0">La copertina viene recuperata automaticamente da laFeltrinelli/IBS in base all'EAN. Se non è disponibile online, appare un'icona segnaposto.</p>`
+    }
+    <p style="font-size:12px;color:var(--testo-lieve);margin:4px 0 0">Suggerimento: per import massivi di titoli possiamo costruire un caricamento da Excel, come nelle altre app PDE.</p>
   `;
 }
 async function aggiungiTitolo(tipo, sezioneId){
   const ean = document.getElementById(`nt-ean-${sezioneId}`).value.trim();
   const titolo = document.getElementById(`nt-titolo-${sezioneId}`).value.trim();
+  const autore = document.getElementById(`nt-autore-${sezioneId}`).value.trim();
   const editore = document.getElementById(`nt-editore-${sezioneId}`).value.trim();
   const prezzo = document.getElementById(`nt-prezzo-${sezioneId}`).value;
+  const note = document.getElementById(`nt-note-${sezioneId}`).value.trim();
+  const gemelli = document.getElementById(`nt-gemelli-${sezioneId}`).value.trim();
   if(!ean || !titolo){ alert('EAN e titolo sono obbligatori.'); return; }
-  await sb.from('titoli').insert({ sezione_tipo:tipo, sezione_id:sezioneId, ean, titolo, editore:editore||null, prezzo:prezzo||null });
+  await sb.from('titoli').insert({ sezione_tipo:tipo, sezione_id:sezioneId, ean, titolo, autore:autore||null, editore:editore||null, prezzo:prezzo||null, note:note||null, gemelli:gemelli||null });
   renderTitoliAdmin(tipo, sezioneId);
 }
 async function eliminaTitolo(id, tipo, sezioneId){
