@@ -7,6 +7,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
 <style>
   :root{
     --blu:#1a2d6b;
@@ -506,6 +507,7 @@ function renderCatalogoGrid(){
         <div class="m">${meta}</div>
         ${extra?`<div class="m">${extra}</div>`:''}
       </div>
+      <svg id="bc-${esc(t.ean)}" class="barcode-svg" style="flex-shrink:0"></svg>
       <div class="qty-box">
         <button class="ghost small" onclick="changeQty('${t.ean}', ${JSON.stringify(t.titolo).replace(/"/g,'&quot;')}, '${t.autore||''}', '${t.editore||''}', ${t.prezzo||0}, '${t.cedola||''}', -1)">−</button>
         <input type="number" min="0" value="${qty}" id="qty-${t.ean}" onchange="setQty('${t.ean}', ${JSON.stringify(t.titolo).replace(/"/g,'&quot;')}, '${t.autore||''}', '${t.editore||''}', ${t.prezzo||0}, '${t.cedola||''}', this.value)">
@@ -513,6 +515,7 @@ function renderCatalogoGrid(){
       </div>
     </div>`;
   }).join('')}</div>`;
+  generaBarcodeVisibili(titoli);
 
   if(pagBox){
     pagBox.innerHTML = totPagine<=1 ? '' : `
@@ -534,6 +537,31 @@ function mostraCopertinaGrande(ean, titolo){
 }
 
 /* --- SCANSIONE CODICI A BARRE (lettore fisico o fotocamera) --- */
+function isEan13Valido(codice){
+  if(!/^\d{13}$/.test(codice)) return false;
+  const cifre = codice.split('').map(Number);
+  const somma = cifre.slice(0,12).reduce((acc,c,i)=> acc + c * (i%2===0?1:3), 0);
+  const checkAtteso = (10 - (somma % 10)) % 10;
+  return checkAtteso === cifre[12];
+}
+function generaBarcodeVisibili(titoli){
+  titoli.forEach(t=>{
+    const el = document.getElementById('bc-'+t.ean);
+    if(!el) return;
+    try{
+      JsBarcode(el, t.ean, {
+        format: isEan13Valido(t.ean) ? 'EAN13' : 'CODE128',
+        width: 1.3,
+        height: 32,
+        fontSize: 10,
+        margin: 2,
+        displayValue: true,
+      });
+    }catch(e){
+      el.outerHTML = `<span style="font-size:11px;color:var(--testo-lieve)">EAN non valido per barcode</span>`;
+    }
+  });
+}
 function handleBarcodeScan(codice){
   codice = (codice||'').trim();
   if(!codice) return;
