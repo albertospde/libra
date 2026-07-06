@@ -66,7 +66,7 @@
   #app-screen{display:flex;min-height:100vh;}
   #sidebar{width:220px;background:var(--blu);color:#fff;display:flex;flex-direction:column;flex-shrink:0;}
   .side-logo{padding:20px 18px 4px;display:flex;justify-content:center;}
-  .side-logo img{width:100%;max-width:184px;display:block;}
+  .side-logo img{width:100%;max-width:184px;display:block;border-radius:12px;}
   #sidebar nav{flex:1;padding:0 12px;}
   #sidebar nav button{display:flex;align-items:center;gap:8px;width:100%;text-align:left;background:transparent;color:#c7cfe6;margin-bottom:4px;font-weight:500;}
   #sidebar nav button.active{background:rgba(255,255,255,.12);color:#fff;}
@@ -522,6 +522,10 @@ async function approvaLibreria(id){
   const tempPassword = genPassword();
   const { data: authData, error } = await supabaseAction.auth.signUp({ email: lib.email, password: tempPassword });
   if(error){ alert('Errore creazione utenza: '+error.message); return; }
+  if(!authData.user || !authData.user.identities || authData.user.identities.length===0){
+    alert('Questa email risulta già registrata su Supabase Auth (es. coincide con un account esistente). Usa Supabase Dashboard per collegarla manualmente, oppure correggi l\'email della richiesta.');
+    return;
+  }
   const { error: err2 } = await sb.from('librerie').update({
     stato:'approvato', auth_user_id: authData.user.id, approvato_at: new Date().toISOString()
   }).eq('id', id);
