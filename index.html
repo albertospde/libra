@@ -64,7 +64,8 @@
 
   /* APP LAYOUT */
   #app-screen{display:flex;min-height:100vh;}
-  #sidebar{width:220px;background:var(--blu);color:#fff;display:flex;flex-direction:column;flex-shrink:0;}
+  #sidebar{width:220px;height:100vh;position:sticky;top:0;background:var(--blu);color:#fff;display:flex;flex-direction:column;flex-shrink:0;overflow:hidden;}
+  #nav-links{overflow-y:auto;flex:1;}
   .side-logo{padding:20px 18px 4px;display:flex;justify-content:center;}
   .side-logo img{width:100%;max-width:184px;display:block;border-radius:12px;}
   #sidebar nav{flex:1;padding:0 12px;}
@@ -344,6 +345,7 @@ function renderLibraioNav(){
     <button data-v="campagna" onclick="goToLibraioView('campagna')">📢 Campagne</button>
     <button data-v="proposta" onclick="goToLibraioView('proposta')">💡 Proposte</button>
     <button data-v="storico" onclick="goToLibraioView('storico')">🕑 Storico ordini</button>
+    <button data-v="profilo" onclick="goToLibraioView('profilo')">👤 Profilo</button>
   `;
 }
 function renderAdminNav(){
@@ -363,8 +365,30 @@ async function goToLibraioView(view){
   state.currentView = view;
   setActiveNav(view);
   if(view === 'storico') return renderStoricoOrdini();
+  if(view === 'profilo') return renderProfiloLibraio();
   state.sezioneTipo = view;
   await renderSezioneLibraio();
+}
+function renderProfiloLibraio(){
+  const l = state.libreria;
+  document.getElementById('main').innerHTML = `
+    <h1>Profilo</h1>
+    <div class="subtitle">I tuoi dati registrati presso PDE</div>
+    <div class="card" style="max-width:520px">
+      <div class="grid2" style="font-size:13.5px">
+        <div><span style="color:var(--testo-lieve)">Ragione sociale</span><br>${esc(l.ragione_sociale)}</div>
+        <div><span style="color:var(--testo-lieve)">Email</span><br>${esc(l.email)}</div>
+        <div><span style="color:var(--testo-lieve)">Città</span><br>${esc(l.citta||'-')}</div>
+        <div><span style="color:var(--testo-lieve)">Partita IVA</span><br>${esc(l.partita_iva||'-')}</div>
+        <div><span style="color:var(--testo-lieve)">Codice MELI</span><br>${esc(l.cod_cliente||'-')}</div>
+        <div><span style="color:var(--testo-lieve)">Telefono</span><br>${esc(l.telefono||'-')}</div>
+        <div style="grid-column:1/-1"><span style="color:var(--testo-lieve)">Indirizzo</span><br>${esc(l.indirizzo||'-')}</div>
+      </div>
+      <p style="font-size:12px;color:var(--testo-lieve);margin-top:16px;border-top:1px solid var(--grigio-line);padding-top:12px">
+        Per correggere un dato, scrivicelo in chat: solo PDE può modificare queste informazioni.
+      </p>
+    </div>
+  `;
 }
 
 async function renderSezioneLibraio(){
@@ -381,7 +405,8 @@ async function renderSezioneLibraio(){
     main.innerHTML = `<h1>${titolo}</h1><div class="subtitle">Sezione libraio</div><div class="card empty">Nessuna sezione attiva al momento.</div>`;
     return;
   }
-  if(!state.sezioneAttiva || !sezioni.find(s=>s.id===state.sezioneAttiva)) state.sezioneAttiva = sezioni[0].id;
+  const sezioneCambiata = !state.sezioneAttiva || !sezioni.find(s=>s.id===state.sezioneAttiva);
+  if(sezioneCambiata){ state.sezioneAttiva = sezioni[0].id; state.catalogoPage = 1; }
 
   main.innerHTML = `
     <h1>${titolo}</h1>
@@ -394,20 +419,22 @@ async function renderSezioneLibraio(){
     const chip = document.createElement('div');
     chip.className = 'sezione-chip' + (s.id===state.sezioneAttiva ? ' active':'');
     chip.innerHTML = `${esc(s.nome)}${s.data_scadenza ? `<span class="scad">scad. ${fmtDate(s.data_scadenza)}</span>`:''}`;
-    chip.onclick = () => { state.sezioneAttiva = s.id; renderSezioneLibraio(); };
+    chip.onclick = () => { state.sezioneAttiva = s.id; state.catalogoPage = 1; renderSezioneLibraio(); };
     picker.appendChild(chip);
   });
 
-  const { data: titoli } = await sb.from('titoli').select('*').eq('sezione_tipo', tipo).eq('sezione_id', state.sezioneAttiva).order('titolo');
+  // ordine di inserimento (created_at), non modificabile/ordinabile dall'utente
+  const { data: titoli } = await sb.from('titoli').select('*').eq('sezione_tipo', tipo).eq('sezione_id', state.sezioneAttiva).order('created_at', { ascending:true });
   state.catalogoTitoli = titoli || [];
   if(!state.catalogoEditoriSel) state.catalogoEditoriSel = [];
+  if(!state.catalogoPage) state.catalogoPage = 1;
   const cont = document.getElementById('titoli-container');
   if(!titoli || titoli.length===0){ cont.innerHTML = '<div class="card empty">Nessun titolo in questa sezione.</div>'; return; }
 
   const editoriDisponibili = [...new Set(titoli.map(t=>t.editore).filter(Boolean))].sort();
   cont.innerHTML = `
     <div class="toolbar">
-      <input id="cat-search" placeholder="Cerca per EAN, titolo, autore o editore..." style="max-width:320px" value="${esc(state.catalogoSearch||'')}" oninput="state.catalogoSearch=this.value;renderCatalogoGrid()">
+      <input id="cat-search" placeholder="Cerca per EAN, titolo, autore o editore..." style="max-width:320px" value="${esc(state.catalogoSearch||'')}" oninput="state.catalogoSearch=this.value;state.catalogoPage=1;renderCatalogoGrid()">
       <div style="position:relative">
         <button class="ghost" onclick="document.getElementById('filtro-editore-panel').classList.toggle('hidden')">🏷 Filtra editore ${state.catalogoEditoriSel.length ? `(${state.catalogoEditoriSel.length})` : ''}</button>
         <div id="filtro-editore-panel" class="hidden" style="position:absolute;top:calc(100% + 6px);left:0;background:#fff;border:1px solid var(--grigio-line);border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,.12);padding:12px;z-index:20;min-width:220px;max-height:260px;overflow-y:auto">
@@ -416,65 +443,101 @@ async function renderSezioneLibraio(){
               <input type="checkbox" value="${esc(ed)}" ${state.catalogoEditoriSel.includes(ed)?'checked':''} onchange="toggleEditoreFiltro('${esc(ed)}')"> ${esc(ed)}
             </label>
           `).join('') || '<span style="font-size:12px;color:var(--testo-lieve)">Nessun editore disponibile</span>'}
-          ${state.catalogoEditoriSel.length ? `<button class="ghost small" style="width:100%;margin-top:8px" onclick="state.catalogoEditoriSel=[];renderSezioneLibraio()">Azzera filtro</button>` : ''}
+          ${state.catalogoEditoriSel.length ? `<button class="ghost small" style="width:100%;margin-top:8px" onclick="state.catalogoEditoriSel=[];state.catalogoPage=1;renderSezioneLibraio()">Azzera filtro</button>` : ''}
         </div>
       </div>
     </div>
     <div id="catalogo-grid"></div>
+    <div id="catalogo-paginazione" style="display:flex;justify-content:center;align-items:center;gap:12px;margin-top:16px"></div>
   `;
   renderCatalogoGrid();
 }
 function toggleEditoreFiltro(ed){
   const i = state.catalogoEditoriSel.indexOf(ed);
   if(i>=0) state.catalogoEditoriSel.splice(i,1); else state.catalogoEditoriSel.push(ed);
+  state.catalogoPage = 1;
   renderCatalogoGrid();
 }
+const TITOLI_PER_PAGINA = 20;
 function renderCatalogoGrid(){
   const isGiro = state.sezioneTipo === 'giro';
   const q = (state.catalogoSearch||'').trim().toLowerCase();
   const sel = state.catalogoEditoriSel||[];
-  const titoli = (state.catalogoTitoli||[]).filter(t=>{
+  const filtrati = (state.catalogoTitoli||[]).filter(t=>{
     const matchQ = !q || [t.ean,t.titolo,t.autore,t.editore].some(v=>v && v.toString().toLowerCase().includes(q));
     const matchEd = sel.length===0 || sel.includes(t.editore);
     return matchQ && matchEd;
   });
   const grid = document.getElementById('catalogo-grid');
+  const pagBox = document.getElementById('catalogo-paginazione');
   if(!grid) return;
-  if(titoli.length===0){ grid.innerHTML = '<div class="card empty">Nessun titolo corrisponde ai filtri.</div>'; return; }
+  if(filtrati.length===0){ grid.innerHTML = '<div class="card empty">Nessun titolo corrisponde ai filtri.</div>'; if(pagBox) pagBox.innerHTML=''; return; }
+
+  const totPagine = Math.max(1, Math.ceil(filtrati.length / TITOLI_PER_PAGINA));
+  if(state.catalogoPage > totPagine) state.catalogoPage = totPagine;
+  const start = (state.catalogoPage-1) * TITOLI_PER_PAGINA;
+  const titoli = filtrati.slice(start, start + TITOLI_PER_PAGINA);
+
   grid.innerHTML = `<div class="titoli-grid">${titoli.map(t=>{
     const inCart = state.cart.find(c=>c.ean===t.ean);
     const qty = inCart ? inCart.quantita : 0;
     const iconaHtml = isGiro
       ? `<button class="ghost small" title="Apri PDF" onclick="window.open('${PDF_BUCKET_URL}${encodeURIComponent(t.ean)}.pdf','_blank')">📄</button>`
-      : `<img src="${coverUrl(t.ean)}" alt="" style="width:34px;height:48px;object-fit:cover;border-radius:4px;box-shadow:0 1px 3px rgba(0,0,0,.25)" onerror="this.replaceWith(Object.assign(document.createElement('span'),{textContent:'📕',style:'font-size:26px'}))">`;
+      : `<img src="${coverUrl(t.ean)}" alt="" style="width:38px;height:54px;object-fit:cover;border-radius:4px;box-shadow:0 1px 3px rgba(0,0,0,.25);cursor:zoom-in" onclick="mostraCopertinaGrande('${t.ean}', ${JSON.stringify(t.titolo).replace(/"/g,'&quot;')})" onerror="this.replaceWith(Object.assign(document.createElement('span'),{textContent:'📕',style:'font-size:26px'}))">`;
+    const meta = [
+      'EAN '+esc(t.ean),
+      t.autore ? esc(t.autore) : null,
+      t.editore ? esc(t.editore) : null,
+      t.prezzo ? '€ '+Number(t.prezzo).toFixed(2) : null,
+    ].filter(Boolean).join(' · ');
+    const extra = [
+      t.note ? 'Note: '+esc(t.note) : null,
+      t.gemelli ? 'Gemelli: '+esc(t.gemelli) : null,
+    ].filter(Boolean).join(' · ');
     return `<div class="titolo-row">
-      <div style="flex-shrink:0;width:38px;display:flex;justify-content:center">${iconaHtml}</div>
+      <div style="flex-shrink:0;width:40px;display:flex;justify-content:center">${iconaHtml}</div>
       <div class="titolo-info">
-        <div class="m" style="font-size:11.5px">EAN ${esc(t.ean)}</div>
         <div class="t">${esc(t.titolo)}</div>
-        <div class="m">${t.autore?esc(t.autore)+' · ':''}${t.editore?esc(t.editore):''} ${t.prezzo?'· € '+Number(t.prezzo).toFixed(2):''}</div>
-        ${t.note?`<div class="m">Note: ${esc(t.note)}</div>`:''}
-        ${t.gemelli?`<div class="m">Gemelli: ${esc(t.gemelli)}</div>`:''}
+        <div class="m">${meta}</div>
+        ${extra?`<div class="m">${extra}</div>`:''}
       </div>
       <div class="qty-box">
-        <button class="ghost small" onclick="changeQty('${t.ean}', ${JSON.stringify(t.titolo).replace(/"/g,'&quot;')}, '${t.editore||''}', ${t.prezzo||0}, '${t.cedola||''}', -1)">−</button>
-        <input type="number" min="0" value="${qty}" id="qty-${t.ean}" onchange="setQty('${t.ean}', ${JSON.stringify(t.titolo).replace(/"/g,'&quot;')}, '${t.editore||''}', ${t.prezzo||0}, '${t.cedola||''}', this.value)">
-        <button class="ghost small" onclick="changeQty('${t.ean}', ${JSON.stringify(t.titolo).replace(/"/g,'&quot;')}, '${t.editore||''}', ${t.prezzo||0}, '${t.cedola||''}', 1)">+</button>
+        <button class="ghost small" onclick="changeQty('${t.ean}', ${JSON.stringify(t.titolo).replace(/"/g,'&quot;')}, '${t.autore||''}', '${t.editore||''}', ${t.prezzo||0}, '${t.cedola||''}', -1)">−</button>
+        <input type="number" min="0" value="${qty}" id="qty-${t.ean}" onchange="setQty('${t.ean}', ${JSON.stringify(t.titolo).replace(/"/g,'&quot;')}, '${t.autore||''}', '${t.editore||''}', ${t.prezzo||0}, '${t.cedola||''}', this.value)">
+        <button class="ghost small" onclick="changeQty('${t.ean}', ${JSON.stringify(t.titolo).replace(/"/g,'&quot;')}, '${t.autore||''}', '${t.editore||''}', ${t.prezzo||0}, '${t.cedola||''}', 1)">+</button>
       </div>
     </div>`;
   }).join('')}</div>`;
+
+  if(pagBox){
+    pagBox.innerHTML = totPagine<=1 ? '' : `
+      <button class="ghost small" ${state.catalogoPage<=1?'disabled':''} onclick="state.catalogoPage--;renderCatalogoGrid()">← Precedenti</button>
+      <span style="font-size:13px;color:var(--testo-lieve)">Pagina ${state.catalogoPage} di ${totPagine} (${filtrati.length} titoli)</span>
+      <button class="ghost small" ${state.catalogoPage>=totPagine?'disabled':''} onclick="state.catalogoPage++;renderCatalogoGrid()">Successivi →</button>
+    `;
+  }
+}
+function mostraCopertinaGrande(ean, titolo){
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.onclick = ()=>overlay.remove();
+  overlay.innerHTML = `<div style="max-width:90vw;max-height:90vh;text-align:center">
+    <img src="${coverUrl(ean)}" alt="" style="max-width:100%;max-height:80vh;border-radius:8px;box-shadow:0 10px 40px rgba(0,0,0,.4)">
+    <div style="color:#fff;margin-top:10px;font-size:14px">${esc(titolo)}</div>
+  </div>`;
+  document.body.appendChild(overlay);
 }
 
-function changeQty(ean, titolo, editore, prezzo, cedola, delta){
+function changeQty(ean, titolo, autore, editore, prezzo, cedola, delta){
   const input = document.getElementById('qty-'+ean);
   const newVal = Math.max(0, parseInt(input.value||0) + delta);
   input.value = newVal;
-  setQty(ean, titolo, editore, prezzo, cedola, newVal);
+  setQty(ean, titolo, autore, editore, prezzo, cedola, newVal);
 }
-function setQty(ean, titolo, editore, prezzo, cedola, value){
+function setQty(ean, titolo, autore, editore, prezzo, cedola, value){
   const qty = Math.max(0, parseInt(value)||0);
   state.cart = state.cart.filter(c=>c.ean!==ean);
-  if(qty>0) state.cart.push({ean, titolo, editore, prezzo, cedola, quantita:qty});
+  if(qty>0) state.cart.push({ean, titolo, autore, editore, prezzo, cedola, quantita:qty});
   updateCartUI();
 }
 function updateCartUI(){
@@ -483,7 +546,7 @@ function updateCartUI(){
   if(state.cart.length===0){ list.innerHTML = '<p class="empty">Carrello vuoto</p>'; return; }
   list.innerHTML = state.cart.map(c=>`<div class="cart-item">
     <div><div class="n">${esc(c.titolo)}</div><div class="p">EAN ${esc(c.ean)} · qtà ${c.quantita}</div></div>
-    <button class="ghost small" onclick="setQty('${c.ean}','','','','',0);renderSezioneLibraio()">✕</button>
+    <button class="ghost small" onclick="setQty('${c.ean}','','','','','',0);renderSezioneLibraio()">✕</button>
   </div>`).join('');
 }
 function toggleCart(){ document.getElementById('cart-panel').classList.toggle('hidden'); updateCartUI(); }
@@ -496,7 +559,7 @@ async function inviaOrdine(){
     sezione_id: state.sezioneAttiva,
   }).select().single();
   if(error){ alert('Errore invio ordine: '+error.message); return; }
-  const dettaglio = state.cart.map(c=>({ ordine_id: ordine.id, ean:c.ean, titolo:c.titolo, editore:c.editore||null, prezzo:c.prezzo||null, cedola:c.cedola||null, quantita:c.quantita }));
+  const dettaglio = state.cart.map(c=>({ ordine_id: ordine.id, ean:c.ean, titolo:c.titolo, autore:c.autore||null, editore:c.editore||null, prezzo:c.prezzo||null, cedola:c.cedola||null, quantita:c.quantita }));
   const { error: err2 } = await sb.from('ordini_dettaglio').insert(dettaglio);
   if(err2){ alert('Errore salvataggio dettaglio: '+err2.message); return; }
   state.cart = [];
@@ -547,12 +610,22 @@ async function renderAdminRichieste(){
 }
 function filtraRichieste(){
   const q = (document.getElementById('richieste-search')?.value || '').trim().toLowerCase();
-  const librerie = (state.richiesteCache || []).filter(l =>
+  const tutte = (state.richiesteCache || []).filter(l =>
     !q || l.ragione_sociale?.toLowerCase().includes(q) || l.cod_cliente?.toLowerCase().includes(q)
   );
+  const daApprovare = tutte.filter(l=>l.stato==='in_attesa');
+  const approvate = tutte.filter(l=>l.stato!=='in_attesa');
   const cont = document.getElementById('richieste-list');
-  if(!librerie || librerie.length===0){ cont.innerHTML = '<div class="card empty">Nessuna richiesta trovata.</div>'; return; }
-  cont.innerHTML = librerie.map(l=>`
+  if(tutte.length===0){ cont.innerHTML = '<div class="card empty">Nessuna richiesta trovata.</div>'; return; }
+  cont.innerHTML = `
+    <h3 style="color:var(--blu);margin:4px 0 10px">Da approvare (${daApprovare.length})</h3>
+    ${daApprovare.length ? daApprovare.map(cardLibreria).join('') : '<div class="card empty">Nessuna richiesta in attesa.</div>'}
+    <h3 style="color:var(--blu);margin:26px 0 10px">Approvate (${approvate.length})</h3>
+    ${approvate.length ? approvate.map(cardLibreria).join('') : '<div class="card empty">Nessuna libreria approvata.</div>'}
+  `;
+}
+function cardLibreria(l){
+  return `
     <div class="card" style="margin-bottom:14px;position:relative">
       <button class="close-x" onclick="eliminaRichiesta('${l.id}')" title="Elimina richiesta">✕</button>
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:14px">
@@ -560,8 +633,9 @@ function filtraRichieste(){
           <div style="font-size:16px;font-weight:700">${esc(l.ragione_sociale)}</div>
           <div style="font-size:12px;color:var(--testo-lieve);margin-top:2px">Richiesta il ${fmtDate(l.created_at)}</div>
         </div>
-        <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;padding-right:22px">
+        <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;padding-right:22px;flex-wrap:wrap;justify-content:flex-end">
           <span class="badge ${l.stato}">${l.stato}</span>
+          <button class="ghost small" onclick="apriModificaLibreria('${l.id}')">✎ Modifica</button>
           ${l.stato==='in_attesa' ? `<button class="primary small" onclick="approvaLibreria('${l.id}')">Approva</button>` : ''}
           ${l.stato==='approvato' ? `<button class="ghost small" onclick="bloccaLibreria('${l.id}')">Blocca</button><button class="ghost small" onclick="recuperaCredenziali('${l.id}')">Recupera credenziali</button>` : ''}
           ${l.stato==='bloccato' ? `<button class="ghost small" onclick="riattivaLibreria('${l.id}')">Riattiva</button>` : ''}
@@ -576,7 +650,45 @@ function filtraRichieste(){
         <div><span style="color:var(--testo-lieve)">Indirizzo</span><br>${esc(l.indirizzo||'-')}</div>
       </div>
     </div>
-  `).join('');
+  `;
+}
+function apriModificaLibreria(id){
+  const l = (state.richiesteCache||[]).find(x=>x.id===id);
+  if(!l) return;
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `<div class="modal-box" style="max-width:480px">
+    <h3>Modifica dati libreria</h3>
+    <div class="field"><label>Ragione sociale</label><input id="edit-ragione" value="${esc(l.ragione_sociale)}"></div>
+    <div class="field"><label>Email</label><input id="edit-email" value="${esc(l.email)}"></div>
+    <div class="grid2">
+      <div class="field"><label>Città</label><input id="edit-citta" value="${esc(l.citta||'')}"></div>
+      <div class="field"><label>Partita IVA</label><input id="edit-piva" value="${esc(l.partita_iva||'')}"></div>
+    </div>
+    <div class="field"><label>Codice MELI</label><input id="edit-codcliente" value="${esc(l.cod_cliente||'')}"></div>
+    <div class="field"><label>Telefono</label><input id="edit-telefono" value="${esc(l.telefono||'')}"></div>
+    <div class="field"><label>Indirizzo</label><input id="edit-indirizzo" value="${esc(l.indirizzo||'')}"></div>
+    <div style="display:flex;gap:8px;margin-top:10px">
+      <button class="ghost" style="flex:1" onclick="this.closest('.modal-overlay').remove()">Annulla</button>
+      <button class="primary" style="flex:1" onclick="salvaModificaLibreria('${id}')">Salva</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+}
+async function salvaModificaLibreria(id){
+  const dati = {
+    ragione_sociale: document.getElementById('edit-ragione').value.trim(),
+    email: document.getElementById('edit-email').value.trim(),
+    citta: document.getElementById('edit-citta').value.trim() || null,
+    partita_iva: document.getElementById('edit-piva').value.trim() || null,
+    cod_cliente: document.getElementById('edit-codcliente').value.trim() || null,
+    telefono: document.getElementById('edit-telefono').value.trim() || null,
+    indirizzo: document.getElementById('edit-indirizzo').value.trim() || null,
+  };
+  const { error } = await sb.from('librerie').update(dati).eq('id', id);
+  if(error){ alert('Errore salvataggio: '+error.message); return; }
+  document.querySelector('.modal-overlay')?.remove();
+  renderAdminRichieste();
 }
 async function eliminaRichiesta(id){
   if(!confirm('Eliminare definitivamente questa richiesta/libreria? Se già approvata, l\'account di accesso resterà attivo su Supabase ma scollegato dal portale.')) return;
@@ -789,7 +901,7 @@ const PDF_BUCKET_URL = 'https://pvsoijmopdqozvutgtdm.supabase.co/storage/v1/obje
 function coverUrl(ean){ return `https://www.ibs.it/images/${ean}_0_0_0_300_75.jpg`; }
 
 async function renderTitoliAdmin(tipo, sezioneId){
-  const { data: titoli } = await sb.from('titoli').select('*').eq('sezione_tipo', tipo).eq('sezione_id', sezioneId).order('titolo');
+  const { data: titoli } = await sb.from('titoli').select('*').eq('sezione_tipo', tipo).eq('sezione_id', sezioneId).order('created_at', { ascending:true });
   const cont = document.getElementById('titoli-admin-'+sezioneId);
   if(!cont) return;
   const isGiro = tipo === 'giro';
@@ -903,11 +1015,28 @@ function buildExportRows(ordini){
   ordini.forEach(o=>{
     o.ordini_dettaglio.forEach(d=>{
       rows.push({
-        'Cedola': d.cedola || '',
+        'Posizione': '',
+        'Codice cliente': o.librerie?.cod_cliente || '',
+        'Nome Cliente': o.librerie?.ragione_sociale || '',
+        'Gruppo cliente': '',
+        'Tipo ordine': '',
+        'N. ordine cliente': o.numero_ordine,
+        'N° cedola': d.cedola || '',
+        'Stato cedola': '',
         'EAN': d.ean,
-        'Quantità': d.quantita,
-        'N. Ordine': o.numero_ordine,
-        'Cod. Cliente': o.librerie?.cod_cliente || '',
+        'Titolo': d.titolo,
+        'Autore': d.autore || '',
+        'Editore': d.editore || '',
+        'Collana': '',
+        'Prezzo': d.prezzo || '',
+        'Obt': '',
+        'Pren (Qtà)': d.quantita,
+        'Trend %': '',
+        'Sc anagr': '',
+        'Sconto occasionale': '',
+        'Pg fisso': '',
+        'Pag(occ)': '',
+        'Qtà trasmessa': '',
       });
     });
   });
@@ -936,14 +1065,34 @@ function esportaExcel(rows, filename){
 }
 
 /* --- ADMIN CHAT --- */
+async function getConversazioneAperta(libreriaId){
+  const { data } = await sb.from('chat_conversazioni').select('*').eq('libreria_id', libreriaId).eq('stato','aperta').order('created_at', { ascending:false }).limit(1).maybeSingle();
+  return data;
+}
+async function getOrCreateConversazioneAperta(libreriaId){
+  const esistente = await getConversazioneAperta(libreriaId);
+  if(esistente) return esistente;
+  const { data, error } = await sb.from('chat_conversazioni').insert({ libreria_id: libreriaId }).select().single();
+  if(error){ console.error(error); return null; }
+  return data;
+}
+
 async function renderAdminChat(){
+  if(!state.chatTab) state.chatTab = 'attive';
   const main = document.getElementById('main');
   main.innerHTML = `
     <h1>Chat librerie</h1>
     <div class="subtitle">Rispondi ai messaggi delle librerie</div>
+    <div class="sezioni-picker">
+      <div class="sezione-chip ${state.chatTab==='attive'?'active':''}" onclick="state.chatTab='attive';state.chatConvId=null;renderAdminChatList()">Attive</div>
+      <div class="sezione-chip ${state.chatTab==='archivio'?'active':''}" onclick="state.chatTab='archivio';state.chatConvId=null;renderAdminChatList()">Archivio</div>
+    </div>
     <div style="display:flex;gap:20px">
       <div class="card" style="width:280px;flex-shrink:0"><div class="lib-chat-list" id="admin-chat-libs"></div></div>
       <div class="card" style="flex:1;display:flex;flex-direction:column;min-height:480px">
+        <div id="admin-chat-toolbar" style="display:none;justify-content:flex-end;margin-bottom:8px">
+          <button class="ghost small" onclick="archiviaChatCorrente()">🗄 Archivia chat</button>
+        </div>
         <div id="admin-chat-messages" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:8px;margin-bottom:12px"></div>
         <div id="admin-chat-inputrow" class="hidden" style="display:flex;gap:8px">
           <input id="admin-chat-input" placeholder="Scrivi una risposta..." onkeydown="if(event.key==='Enter')sendAdminChatMessage()">
@@ -952,27 +1101,46 @@ async function renderAdminChat(){
       </div>
     </div>
   `;
-  await renderAdminChatLibsList();
+  await renderAdminChatList();
 }
-async function renderAdminChatLibsList(){
-  const { data: librerie } = await sb.from('librerie').select('*').eq('stato','approvato').order('ragione_sociale');
-  const { data: nonLetti } = await sb.from('chat_messaggi').select('libreria_id').eq('mittente','libreria').eq('letto_admin', false);
-  const unreadMap = {};
-  (nonLetti||[]).forEach(m=> unreadMap[m.libreria_id] = (unreadMap[m.libreria_id]||0)+1);
+async function renderAdminChatList(){
+  document.querySelectorAll('.sezioni-picker .sezione-chip').forEach((el,i)=>{
+    el.classList.toggle('active', (i===0 && state.chatTab==='attive') || (i===1 && state.chatTab==='archivio'));
+  });
+  document.getElementById('admin-chat-messages').innerHTML = '';
+  document.getElementById('admin-chat-inputrow').classList.add('hidden');
+  document.getElementById('admin-chat-toolbar').style.display = 'none';
   const cont = document.getElementById('admin-chat-libs');
-  cont.innerHTML = (librerie||[]).map(l=>`<div class="lib-chat-item ${state.chatWith===l.id?'active':''}" onclick="openAdminChat('${l.id}','${esc(l.ragione_sociale)}')">
-    <span>${esc(l.ragione_sociale)}</span>${unreadMap[l.id] ? `<span class="badge attesa">${unreadMap[l.id]}</span>`:''}
-  </div>`).join('') || '<p class="empty">Nessuna libreria approvata.</p>';
+
+  if(state.chatTab === 'attive'){
+    const { data: conversazioni } = await sb.from('chat_conversazioni').select('*, librerie(ragione_sociale)').eq('stato','aperta').order('created_at', { ascending:false });
+    const { data: nonLetti } = await sb.from('chat_messaggi').select('conversazione_id').eq('mittente','libreria').eq('letto_admin', false);
+    const unreadMap = {};
+    (nonLetti||[]).forEach(m=> unreadMap[m.conversazione_id] = (unreadMap[m.conversazione_id]||0)+1);
+    cont.innerHTML = (conversazioni||[]).map(c=>`<div class="lib-chat-item ${state.chatConvId===c.id?'active':''}" onclick="openAdminConversazione('${c.id}','${c.libreria_id}')">
+      <span>${esc(c.librerie?.ragione_sociale||'—')}</span>${unreadMap[c.id] ? `<span class="badge attesa">${unreadMap[c.id]}</span>`:''}
+    </div>`).join('') || '<p class="empty">Nessuna chat attiva al momento.</p>';
+  } else {
+    const { data: conversazioni } = await sb.from('chat_conversazioni').select('*, librerie(ragione_sociale)').eq('stato','archiviata').order('archiviata_at', { ascending:false });
+    cont.innerHTML = (conversazioni||[]).map(c=>`<div class="lib-chat-item ${state.chatConvId===c.id?'active':''}" onclick="openAdminConversazione('${c.id}','${c.libreria_id}',true)">
+      <span>${esc(c.librerie?.ragione_sociale||'—')}</span><span style="font-size:11px;color:var(--testo-lieve)">${fmtDate(c.archiviata_at)}</span>
+    </div>`).join('') || '<p class="empty">Nessuna chat archiviata.</p>';
+  }
 }
-async function openAdminChat(id, nome){
-  state.chatWith = id;
-  document.getElementById('admin-chat-inputrow').classList.remove('hidden');
-  await renderAdminChatLibsList();
+async function openAdminConversazione(convId, libreriaId, readonly){
+  state.chatConvId = convId;
+  state.chatWithLibreriaId = libreriaId;
+  await renderAdminChatList();
   await loadAdminChatMessages();
-  await sb.from('chat_messaggi').update({ letto_admin:true }).eq('libreria_id', id).eq('mittente','libreria');
+  document.getElementById('admin-chat-inputrow').classList.toggle('hidden', !!readonly);
+  document.getElementById('admin-chat-toolbar').style.display = readonly ? 'none' : 'flex';
+  if(!readonly){
+    await sb.from('chat_messaggi').update({ letto_admin:true }).eq('conversazione_id', convId).eq('mittente','libreria');
+    renderAdminChatList();
+  }
 }
 async function loadAdminChatMessages(){
-  const { data: msgs } = await sb.from('chat_messaggi').select('*').eq('libreria_id', state.chatWith).order('created_at');
+  const { data: msgs } = await sb.from('chat_messaggi').select('*').eq('conversazione_id', state.chatConvId).order('created_at');
   const cont = document.getElementById('admin-chat-messages');
   cont.innerHTML = (msgs||[]).map(m=>`<div class="bubble ${m.mittente}">${esc(m.testo)}<span class="time">${fmtDateTime(m.created_at)}</span></div>`).join('');
   cont.scrollTop = cont.scrollHeight;
@@ -980,10 +1148,17 @@ async function loadAdminChatMessages(){
 async function sendAdminChatMessage(){
   const input = document.getElementById('admin-chat-input');
   const testo = input.value.trim();
-  if(!testo || !state.chatWith) return;
-  await sb.from('chat_messaggi').insert({ libreria_id: state.chatWith, mittente:'admin', testo });
+  if(!testo || !state.chatConvId) return;
+  await sb.from('chat_messaggi').insert({ libreria_id: state.chatWithLibreriaId, conversazione_id: state.chatConvId, mittente:'admin', testo });
   input.value = '';
   await loadAdminChatMessages();
+}
+async function archiviaChatCorrente(){
+  if(!state.chatConvId) return;
+  if(!confirm('Archiviare questa conversazione? Se la libreria scrive di nuovo, si aprirà una nuova chat.')) return;
+  await sb.from('chat_conversazioni').update({ stato:'archiviata', archiviata_at: new Date().toISOString() }).eq('id', state.chatConvId);
+  state.chatConvId = null;
+  renderAdminChatList();
 }
 
 /* ================= CHAT LIBRAIO ================= */
@@ -992,18 +1167,27 @@ function toggleChat(){
   if(!document.getElementById('chat-panel').classList.contains('hidden')) loadLibraioChatMessages();
 }
 async function loadLibraioChatMessages(){
-  const { data: msgs } = await sb.from('chat_messaggi').select('*').eq('libreria_id', state.libreria.id).order('created_at');
+  const conv = await getConversazioneAperta(state.libreria.id);
+  state.chatConversazioneLibraio = conv;
   const cont = document.getElementById('chat-messages');
+  if(!conv){
+    cont.innerHTML = '<p style="text-align:center;color:var(--testo-lieve);font-size:13px;padding:26px 10px">Nessun messaggio. Scrivi qui sotto per iniziare una conversazione con PDE.</p>';
+    document.getElementById('chat-badge').classList.add('hidden');
+    return;
+  }
+  const { data: msgs } = await sb.from('chat_messaggi').select('*').eq('conversazione_id', conv.id).order('created_at');
   cont.innerHTML = (msgs||[]).map(m=>`<div class="bubble ${m.mittente}">${esc(m.testo)}<span class="time">${fmtDateTime(m.created_at)}</span></div>`).join('');
   cont.scrollTop = cont.scrollHeight;
-  await sb.from('chat_messaggi').update({ letto_libreria:true }).eq('libreria_id', state.libreria.id).eq('mittente','admin');
+  await sb.from('chat_messaggi').update({ letto_libreria:true }).eq('conversazione_id', conv.id).eq('mittente','admin');
   document.getElementById('chat-badge').classList.add('hidden');
 }
 async function sendChatMessage(){
   const input = document.getElementById('chat-input');
   const testo = input.value.trim();
   if(!testo) return;
-  await sb.from('chat_messaggi').insert({ libreria_id: state.libreria.id, mittente:'libreria', testo });
+  const conv = await getOrCreateConversazioneAperta(state.libreria.id);
+  if(!conv){ alert('Errore avvio conversazione, riprova.'); return; }
+  await sb.from('chat_messaggi').insert({ libreria_id: state.libreria.id, conversazione_id: conv.id, mittente:'libreria', testo });
   input.value = '';
   await loadLibraioChatMessages();
 }
