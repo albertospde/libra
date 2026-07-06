@@ -457,24 +457,24 @@ function renderCatalogoGrid(){
         ${t.gemelli?`<div class="m">Gemelli: ${esc(t.gemelli)}</div>`:''}
       </div>
       <div class="qty-box">
-        <button class="ghost small" onclick="changeQty('${t.ean}', ${JSON.stringify(t.titolo).replace(/"/g,'&quot;')}, '${t.editore||''}', ${t.prezzo||0}, -1)">−</button>
-        <input type="number" min="0" value="${qty}" id="qty-${t.ean}" onchange="setQty('${t.ean}', ${JSON.stringify(t.titolo).replace(/"/g,'&quot;')}, '${t.editore||''}', ${t.prezzo||0}, this.value)">
-        <button class="ghost small" onclick="changeQty('${t.ean}', ${JSON.stringify(t.titolo).replace(/"/g,'&quot;')}, '${t.editore||''}', ${t.prezzo||0}, 1)">+</button>
+        <button class="ghost small" onclick="changeQty('${t.ean}', ${JSON.stringify(t.titolo).replace(/"/g,'&quot;')}, '${t.editore||''}', ${t.prezzo||0}, '${t.cedola||''}', -1)">−</button>
+        <input type="number" min="0" value="${qty}" id="qty-${t.ean}" onchange="setQty('${t.ean}', ${JSON.stringify(t.titolo).replace(/"/g,'&quot;')}, '${t.editore||''}', ${t.prezzo||0}, '${t.cedola||''}', this.value)">
+        <button class="ghost small" onclick="changeQty('${t.ean}', ${JSON.stringify(t.titolo).replace(/"/g,'&quot;')}, '${t.editore||''}', ${t.prezzo||0}, '${t.cedola||''}', 1)">+</button>
       </div>
     </div>`;
   }).join('')}</div>`;
 }
 
-function changeQty(ean, titolo, editore, prezzo, delta){
+function changeQty(ean, titolo, editore, prezzo, cedola, delta){
   const input = document.getElementById('qty-'+ean);
   const newVal = Math.max(0, parseInt(input.value||0) + delta);
   input.value = newVal;
-  setQty(ean, titolo, editore, prezzo, newVal);
+  setQty(ean, titolo, editore, prezzo, cedola, newVal);
 }
-function setQty(ean, titolo, editore, prezzo, value){
+function setQty(ean, titolo, editore, prezzo, cedola, value){
   const qty = Math.max(0, parseInt(value)||0);
   state.cart = state.cart.filter(c=>c.ean!==ean);
-  if(qty>0) state.cart.push({ean, titolo, editore, prezzo, quantita:qty});
+  if(qty>0) state.cart.push({ean, titolo, editore, prezzo, cedola, quantita:qty});
   updateCartUI();
 }
 function updateCartUI(){
@@ -483,7 +483,7 @@ function updateCartUI(){
   if(state.cart.length===0){ list.innerHTML = '<p class="empty">Carrello vuoto</p>'; return; }
   list.innerHTML = state.cart.map(c=>`<div class="cart-item">
     <div><div class="n">${esc(c.titolo)}</div><div class="p">EAN ${esc(c.ean)} · qtà ${c.quantita}</div></div>
-    <button class="ghost small" onclick="setQty('${c.ean}','','',0,0);renderSezioneLibraio()">✕</button>
+    <button class="ghost small" onclick="setQty('${c.ean}','','','','',0);renderSezioneLibraio()">✕</button>
   </div>`).join('');
 }
 function toggleCart(){ document.getElementById('cart-panel').classList.toggle('hidden'); updateCartUI(); }
@@ -496,7 +496,7 @@ async function inviaOrdine(){
     sezione_id: state.sezioneAttiva,
   }).select().single();
   if(error){ alert('Errore invio ordine: '+error.message); return; }
-  const dettaglio = state.cart.map(c=>({ ordine_id: ordine.id, ean:c.ean, titolo:c.titolo, editore:c.editore||null, prezzo:c.prezzo||null, quantita:c.quantita }));
+  const dettaglio = state.cart.map(c=>({ ordine_id: ordine.id, ean:c.ean, titolo:c.titolo, editore:c.editore||null, prezzo:c.prezzo||null, cedola:c.cedola||null, quantita:c.quantita }));
   const { error: err2 } = await sb.from('ordini_dettaglio').insert(dettaglio);
   if(err2){ alert('Errore salvataggio dettaglio: '+err2.message); return; }
   state.cart = [];
@@ -701,7 +701,7 @@ async function renderAdminSezioniList(){
 }
 
 function scaricaModelloTitoli(){
-  const rows = [{ EAN:'9788807970207', Titolo:'Titolo di esempio', Autore:'Nome Autore', Editore:'Editore', Prezzo:18.5, Note:'', Gemelli:'' }];
+  const rows = [{ EAN:'9788807970207', Titolo:'Titolo di esempio', Autore:'Nome Autore', Editore:'Editore', Prezzo:18.5, Note:'', Gemelli:'', Cedola:'' }];
   const ws = XLSX.utils.json_to_sheet(rows);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Titoli');
@@ -743,6 +743,7 @@ async function importaTitoliExcel(event, tipo, sezioneId){
         prezzo: getVal(row,'prezzo') !== '' ? Number(getVal(row,'prezzo')) : null,
         note: getVal(row,'note').toString().trim() || null,
         gemelli: getVal(row,'gemelli').toString().trim() || null,
+        cedola: getVal(row,'cedola').toString().trim() || null,
       });
     });
 
@@ -794,7 +795,7 @@ async function renderTitoliAdmin(tipo, sezioneId){
   const isGiro = tipo === 'giro';
   cont.innerHTML = `
     <table>
-      <thead><tr><th></th><th>EAN</th><th>Titolo</th><th>Autore</th><th>Editore</th><th>Prezzo</th><th>Note</th><th>Gemelli</th><th></th></tr></thead>
+      <thead><tr><th></th><th>EAN</th><th>Titolo</th><th>Autore</th><th>Editore</th><th>Prezzo</th><th>Note</th><th>Gemelli</th><th>Cedola</th><th></th></tr></thead>
       <tbody>
         ${(titoli||[]).map(t=>`<tr>
           <td>${isGiro
@@ -808,6 +809,7 @@ async function renderTitoliAdmin(tipo, sezioneId){
           <td>${t.prezzo?'€ '+Number(t.prezzo).toFixed(2):'-'}</td>
           <td>${esc(t.note||'-')}</td>
           <td>${esc(t.gemelli||'-')}</td>
+          <td>${esc(t.cedola||'-')}</td>
           <td><button class="ghost small" onclick="eliminaTitolo('${t.id}','${tipo}','${sezioneId}')">Elimina</button></td>
         </tr>`).join('')}
         <tr>
@@ -819,6 +821,7 @@ async function renderTitoliAdmin(tipo, sezioneId){
           <td><input id="nt-prezzo-${sezioneId}" placeholder="€" type="number" step="0.01"></td>
           <td><input id="nt-note-${sezioneId}" placeholder="Note"></td>
           <td><input id="nt-gemelli-${sezioneId}" placeholder="Gemelli"></td>
+          <td><input id="nt-cedola-${sezioneId}" placeholder="Cedola"></td>
           <td><button class="primary small" onclick="aggiungiTitolo('${tipo}','${sezioneId}')">+ Aggiungi</button></td>
         </tr>
       </tbody>
@@ -827,7 +830,7 @@ async function renderTitoliAdmin(tipo, sezioneId){
       ? `<p style="font-size:12px;color:var(--testo-lieve);margin:8px 0 0">Il tasto 📄 apre il PDF corrispondente. Carica i PDF su Supabase → Storage → bucket <b>giro-pdf</b>, rinominandoli esattamente come l'EAN (es. <code>9788807970207.pdf</code>).</p>`
       : `<p style="font-size:12px;color:var(--testo-lieve);margin:8px 0 0">La copertina viene recuperata automaticamente da laFeltrinelli/IBS in base all'EAN. Se non è disponibile online, appare un'icona segnaposto.</p>`
     }
-    <p style="font-size:12px;color:var(--testo-lieve);margin:4px 0 0">Suggerimento: per import massivi di titoli possiamo costruire un caricamento da Excel, come nelle altre app PDE.</p>
+    <p style="font-size:12px;color:var(--testo-lieve);margin:4px 0 0">La colonna <b>Cedola</b> è visibile solo qui in admin: serve per l'export verso RPN, il libraio non la vede mai.</p>
   `;
 }
 async function aggiungiTitolo(tipo, sezioneId){
@@ -838,8 +841,9 @@ async function aggiungiTitolo(tipo, sezioneId){
   const prezzo = document.getElementById(`nt-prezzo-${sezioneId}`).value;
   const note = document.getElementById(`nt-note-${sezioneId}`).value.trim();
   const gemelli = document.getElementById(`nt-gemelli-${sezioneId}`).value.trim();
+  const cedola = document.getElementById(`nt-cedola-${sezioneId}`).value.trim();
   if(!ean || !titolo){ alert('EAN e titolo sono obbligatori.'); return; }
-  await sb.from('titoli').insert({ sezione_tipo:tipo, sezione_id:sezioneId, ean, titolo, autore:autore||null, editore:editore||null, prezzo:prezzo||null, note:note||null, gemelli:gemelli||null });
+  await sb.from('titoli').insert({ sezione_tipo:tipo, sezione_id:sezioneId, ean, titolo, autore:autore||null, editore:editore||null, prezzo:prezzo||null, note:note||null, gemelli:gemelli||null, cedola:cedola||null });
   renderTitoliAdmin(tipo, sezioneId);
 }
 async function eliminaTitolo(id, tipo, sezioneId){
@@ -850,16 +854,15 @@ async function eliminaTitolo(id, tipo, sezioneId){
 /* --- ADMIN ORDINI + EXPORT --- */
 async function renderAdminOrdini(){
   const main = document.getElementById('main');
+  if(!state.ordiniTab) state.ordiniTab = 'attivi';
   main.innerHTML = `
     <h1>Ordini</h1>
     <div class="subtitle">Ordini ricevuti dalle librerie</div>
+    <div class="sezioni-picker">
+      <div class="sezione-chip ${state.ordiniTab==='attivi'?'active':''}" onclick="state.ordiniTab='attivi';renderAdminOrdiniList()">Da scaricare</div>
+      <div class="sezione-chip ${state.ordiniTab==='scaricati'?'active':''}" onclick="state.ordiniTab='scaricati';renderAdminOrdiniList()">Scaricati</div>
+    </div>
     <div class="toolbar">
-      <select id="filtro-stato" onchange="renderAdminOrdiniList()">
-        <option value="">Tutti gli stati</option>
-        <option value="inviato">Inviato</option>
-        <option value="elaborato">Elaborato</option>
-        <option value="scaricato">Scaricato</option>
-      </select>
       <button class="dark" onclick="scaricaSelezionati()">⬇ Scarica selezionati (Excel per RPN)</button>
     </div>
     <div id="ordini-admin-list"></div>
@@ -867,15 +870,23 @@ async function renderAdminOrdini(){
   await renderAdminOrdiniList();
 }
 async function renderAdminOrdiniList(){
-  const filtro = document.getElementById('filtro-stato').value;
-  let query = sb.from('ordini').select('*, librerie(ragione_sociale, cod_cliente), ordini_dettaglio(*)').order('created_at', { ascending:false });
-  if(filtro) query = query.eq('stato', filtro);
+  document.querySelectorAll('.sezione-chip').forEach(c=>c.classList.remove('active'));
+  const isScaricati = state.ordiniTab === 'scaricati';
+  let query = sb.from('ordini').select('*, librerie(ragione_sociale, cod_cliente), ordini_dettaglio(*)').order('numero_ordine', { ascending:false });
+  query = isScaricati ? query.eq('stato','scaricato') : query.neq('stato','scaricato');
   const { data: ordini } = await query;
+
+  // riapplico lo stato visivo dei tab (renderAdminOrdiniList può essere richiamato senza rifare renderAdminOrdini)
+  document.querySelectorAll('.sezioni-picker .sezione-chip').forEach((el,i)=>{
+    el.classList.toggle('active', (i===0 && !isScaricati) || (i===1 && isScaricati));
+  });
+
   const cont = document.getElementById('ordini-admin-list');
-  if(!ordini || ordini.length===0){ cont.innerHTML = '<div class="card empty">Nessun ordine.</div>'; return; }
-  cont.innerHTML = `<table><thead><tr><th><input type="checkbox" onclick="toggleAllOrdini(this)"></th><th>Libreria</th><th>Sezione</th><th>Righe</th><th>Data</th><th>Stato</th><th></th></tr></thead><tbody>
+  if(!ordini || ordini.length===0){ cont.innerHTML = `<div class="card empty">Nessun ordine ${isScaricati?'scaricato':'da scaricare'}.</div>`; return; }
+  cont.innerHTML = `<table><thead><tr><th><input type="checkbox" onclick="toggleAllOrdini(this)"></th><th>N. Ordine</th><th>Libreria</th><th>Sezione</th><th>Righe</th><th>Data</th><th>Stato</th><th></th></tr></thead><tbody>
     ${ordini.map(o=>`<tr>
       <td><input type="checkbox" class="ordine-check" value="${o.id}"></td>
+      <td>#${o.numero_ordine}</td>
       <td>${esc(o.librerie?.ragione_sociale||'-')}</td>
       <td>${o.sezione_tipo}</td>
       <td>${o.ordini_dettaglio.length}</td>
@@ -892,14 +903,11 @@ function buildExportRows(ordini){
   ordini.forEach(o=>{
     o.ordini_dettaglio.forEach(d=>{
       rows.push({
-        'Cod. Cliente': o.librerie?.cod_cliente || '',
-        'Libreria': o.librerie?.ragione_sociale || '',
-        'Sezione': o.sezione_tipo,
+        'Cedola': d.cedola || '',
         'EAN': d.ean,
-        'Titolo': d.titolo,
-        'Editore': d.editore || '',
         'Quantità': d.quantita,
-        'Data ordine': fmtDate(o.created_at),
+        'N. Ordine': o.numero_ordine,
+        'Cod. Cliente': o.librerie?.cod_cliente || '',
       });
     });
   });
@@ -907,7 +915,7 @@ function buildExportRows(ordini){
 }
 async function scaricaOrdine(ordine){
   const rows = buildExportRows([ordine]);
-  esportaExcel(rows, `ordine_${ordine.librerie?.ragione_sociale||'libreria'}_${ordine.id.slice(0,8)}`);
+  esportaExcel(rows, `rpn_ordine_${ordine.numero_ordine}`);
   await sb.from('ordini').update({ stato:'scaricato', scaricato_at: new Date().toISOString() }).eq('id', ordine.id);
   renderAdminOrdiniList();
 }
@@ -916,7 +924,7 @@ async function scaricaSelezionati(){
   if(ids.length===0){ alert('Seleziona almeno un ordine.'); return; }
   const { data: ordini } = await sb.from('ordini').select('*, librerie(ragione_sociale, cod_cliente), ordini_dettaglio(*)').in('id', ids);
   const rows = buildExportRows(ordini);
-  esportaExcel(rows, `upload_rpn_${todayISO()}`);
+  esportaExcel(rows, `rpn_upload_${todayISO()}`);
   await sb.from('ordini').update({ stato:'scaricato', scaricato_at: new Date().toISOString() }).in('id', ids);
   renderAdminOrdiniList();
 }
