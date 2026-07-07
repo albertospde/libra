@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PDE Libra</title>
+<title>PDE Portale Librerie</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
@@ -492,16 +492,14 @@ function renderCatalogoGrid(){
       t.editore ? esc(t.editore) : null,
       t.prezzo ? '€ '+Number(t.prezzo).toFixed(2) : null,
     ].filter(Boolean).join(' · ');
-    const extra = [
-      t.note ? 'Note: '+esc(t.note) : null,
-      t.gemelli ? 'Gemelli: '+esc(t.gemelli) : null,
-    ].filter(Boolean).join(' · ');
+    const extraGemelli = t.gemelli ? 'Gemelli: '+esc(t.gemelli) : '';
     return `<div class="titolo-row">
       <div style="flex-shrink:0;width:40px;display:flex;justify-content:center">${iconaHtml}</div>
       <div class="titolo-info">
         <div class="t">${esc(t.titolo)}</div>
         <div class="m">${meta}</div>
-        ${extra?`<div class="m">${extra}</div>`:''}
+        ${extraGemelli?`<div class="m">${extraGemelli}</div>`:''}
+        ${t.note?`<button class="ghost small" style="margin-top:4px" onclick='mostraTestoLungo(${JSON.stringify(t.titolo)}, ${JSON.stringify(t.note)})'>📝 Note</button>`:''}
       </div>
       <svg id="bc-riga-${idx}" data-ean="${esc(t.ean)}" class="barcode-svg" style="flex-shrink:0"></svg>
       <div class="qty-box">
@@ -845,7 +843,7 @@ async function renderAdminSezioniList(){
 }
 
 function scaricaModelloTitoli(){
-  const rows = [{ EAN:'9788807970207', Titolo:'Titolo di esempio', Autore:'Nome Autore', Editore:'Editore', Prezzo:18.5, Note:'', Gemelli:'', Cedola:'' }];
+  const rows = [{ Cedola:'', EAN:'9788807970207', Titolo:'Titolo di esempio', Autore:'Nome Autore', Editore:'Editore', Prezzo:18.5, Note:'', Gemelli:'' }];
   const ws = XLSX.utils.json_to_sheet(rows);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Titoli');
@@ -939,7 +937,7 @@ async function renderTitoliAdmin(tipo, sezioneId){
   const isGiro = tipo === 'giro';
   cont.innerHTML = `
     <table>
-      <thead><tr><th></th><th>EAN</th><th>Titolo</th><th>Autore</th><th>Editore</th><th>Prezzo</th><th>Note</th><th>Gemelli</th><th>Cedola</th><th></th></tr></thead>
+      <thead><tr><th></th><th>EAN</th><th>Titolo</th><th>Autore</th><th>Editore</th><th>Prezzo</th><th>Note</th><th>Gemelli</th><th></th></tr></thead>
       <tbody>
         ${(titoli||[]).map(t=>`<tr>
           <td>${isGiro
@@ -951,9 +949,8 @@ async function renderTitoliAdmin(tipo, sezioneId){
           <td>${esc(t.autore||'-')}</td>
           <td>${esc(t.editore||'-')}</td>
           <td>${t.prezzo?'€ '+Number(t.prezzo).toFixed(2):'-'}</td>
-          <td>${esc(t.note||'-')}</td>
+          <td>${t.note ? `<button class="ghost small" onclick='mostraTestoLungo(${JSON.stringify(t.titolo)}, ${JSON.stringify(t.note)})'>Apri</button>` : '-'}</td>
           <td>${esc(t.gemelli||'-')}</td>
-          <td>${esc(t.cedola||'-')}</td>
           <td><button class="ghost small" onclick="eliminaTitolo('${t.id}','${tipo}','${sezioneId}')">Elimina</button></td>
         </tr>`).join('')}
         <tr>
@@ -965,7 +962,6 @@ async function renderTitoliAdmin(tipo, sezioneId){
           <td><input id="nt-prezzo-${sezioneId}" placeholder="€" type="number" step="0.01"></td>
           <td><input id="nt-note-${sezioneId}" placeholder="Note"></td>
           <td><input id="nt-gemelli-${sezioneId}" placeholder="Gemelli"></td>
-          <td><input id="nt-cedola-${sezioneId}" placeholder="Cedola"></td>
           <td><button class="primary small" onclick="aggiungiTitolo('${tipo}','${sezioneId}')">+ Aggiungi</button></td>
         </tr>
       </tbody>
@@ -974,8 +970,19 @@ async function renderTitoliAdmin(tipo, sezioneId){
       ? `<p style="font-size:12px;color:var(--testo-lieve);margin:8px 0 0">Il tasto 📄 apre il PDF corrispondente. Carica i PDF su Supabase → Storage → bucket <b>giro-pdf</b>, rinominandoli esattamente come l'EAN (es. <code>9788807970207.pdf</code>).</p>`
       : `<p style="font-size:12px;color:var(--testo-lieve);margin:8px 0 0">La copertina viene recuperata automaticamente da laFeltrinelli/IBS in base all'EAN. Se non è disponibile online, appare un'icona segnaposto.</p>`
     }
-    <p style="font-size:12px;color:var(--testo-lieve);margin:4px 0 0">La colonna <b>Cedola</b> è visibile solo qui in admin: serve per l'export verso RPN, il libraio non la vede mai.</p>
+    <p style="font-size:12px;color:var(--testo-lieve);margin:4px 0 0">Il campo <b>Cedola</b> non è mostrato in tabella (né qui né dal libraio): si popola solo via import Excel, e viene usato in automatico nell'export per RPN.</p>
   `;
+}
+function mostraTestoLungo(titolo, testo){
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.onclick = (e)=>{ if(e.target===overlay) overlay.remove(); };
+  overlay.innerHTML = `<div class="modal-box" style="max-width:520px">
+    <h3>${esc(titolo)}</h3>
+    <p style="white-space:pre-wrap;font-size:14px;line-height:1.5">${esc(testo)}</p>
+    <button class="ghost" style="width:100%;margin-top:10px" onclick="this.closest('.modal-overlay').remove()">Chiudi</button>
+  </div>`;
+  document.body.appendChild(overlay);
 }
 async function aggiungiTitolo(tipo, sezioneId){
   const ean = document.getElementById(`nt-ean-${sezioneId}`).value.trim();
@@ -985,9 +992,8 @@ async function aggiungiTitolo(tipo, sezioneId){
   const prezzo = document.getElementById(`nt-prezzo-${sezioneId}`).value;
   const note = document.getElementById(`nt-note-${sezioneId}`).value.trim();
   const gemelli = document.getElementById(`nt-gemelli-${sezioneId}`).value.trim();
-  const cedola = document.getElementById(`nt-cedola-${sezioneId}`).value.trim();
   if(!ean || !titolo){ alert('EAN e titolo sono obbligatori.'); return; }
-  await sb.from('titoli').insert({ sezione_tipo:tipo, sezione_id:sezioneId, ean, titolo, autore:autore||null, editore:editore||null, prezzo:prezzo||null, note:note||null, gemelli:gemelli||null, cedola:cedola||null });
+  await sb.from('titoli').insert({ sezione_tipo:tipo, sezione_id:sezioneId, ean, titolo, autore:autore||null, editore:editore||null, prezzo:prezzo||null, note:note||null, gemelli:gemelli||null });
   renderTitoliAdmin(tipo, sezioneId);
 }
 async function eliminaTitolo(id, tipo, sezioneId){
