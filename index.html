@@ -100,7 +100,7 @@
   .qty-box button{padding:5px 9px;}
 
   /* CARRELLO */
-  #cart-fab{position:fixed;bottom:24px;right:24px;background:var(--blu);color:#fff;border-radius:30px;padding:14px 22px;font-weight:700;box-shadow:0 6px 18px rgba(26,45,107,.35);z-index:50;}
+  #cart-fab{position:fixed;top:20px;right:28px;background:var(--blu);color:#fff;border-radius:30px;padding:12px 20px;font-weight:700;box-shadow:0 6px 18px rgba(26,45,107,.35);z-index:50;}
   #cart-panel{position:fixed;top:0;right:0;height:100vh;width:380px;background:#fff;box-shadow:-4px 0 24px rgba(0,0,0,.12);z-index:100;display:flex;flex-direction:column;padding:22px;}
   #cart-panel h3{margin-top:0;}
   .cart-item{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--grigio-line);gap:8px;}
@@ -1122,8 +1122,8 @@ async function renderAdminChat(){
     <h1>Chat librerie</h1>
     <div class="subtitle">Rispondi ai messaggi delle librerie</div>
     <div class="sezioni-picker">
-      <div class="sezione-chip ${state.chatTab==='attive'?'active':''}" onclick="state.chatTab='attive';state.chatConvId=null;renderAdminChatList()">Attive</div>
-      <div class="sezione-chip ${state.chatTab==='archivio'?'active':''}" onclick="state.chatTab='archivio';state.chatConvId=null;renderAdminChatList()">Archivio</div>
+      <div class="sezione-chip ${state.chatTab==='attive'?'active':''}" onclick="state.chatTab='attive';state.chatConvId=null;resetAdminChatPannello();renderAdminChatList()">Attive</div>
+      <div class="sezione-chip ${state.chatTab==='archivio'?'active':''}" onclick="state.chatTab='archivio';state.chatConvId=null;resetAdminChatPannello();renderAdminChatList()">Archivio</div>
     </div>
     <div style="display:flex;gap:20px">
       <div class="card" style="width:280px;flex-shrink:0"><div class="lib-chat-list" id="admin-chat-libs"></div></div>
@@ -1145,9 +1145,6 @@ async function renderAdminChatList(){
   document.querySelectorAll('.sezioni-picker .sezione-chip').forEach((el,i)=>{
     el.classList.toggle('active', (i===0 && state.chatTab==='attive') || (i===1 && state.chatTab==='archivio'));
   });
-  document.getElementById('admin-chat-messages').innerHTML = '';
-  document.getElementById('admin-chat-inputrow').classList.add('hidden');
-  document.getElementById('admin-chat-toolbar').style.display = 'none';
   const cont = document.getElementById('admin-chat-libs');
 
   if(state.chatTab === 'attive'){
@@ -1164,6 +1161,11 @@ async function renderAdminChatList(){
       <span>${esc(c.librerie?.ragione_sociale||'—')}</span><span style="font-size:11px;color:var(--testo-lieve)">${fmtDate(c.archiviata_at)}</span>
     </div>`).join('') || '<p class="empty">Nessuna chat archiviata.</p>';
   }
+}
+function resetAdminChatPannello(){
+  document.getElementById('admin-chat-messages').innerHTML = '';
+  document.getElementById('admin-chat-inputrow').classList.add('hidden');
+  document.getElementById('admin-chat-toolbar').style.display = 'none';
 }
 async function openAdminConversazione(convId, libreriaId, readonly){
   state.chatConvId = convId;
