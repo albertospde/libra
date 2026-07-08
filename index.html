@@ -245,7 +245,7 @@ function genPassword(){
   return p;
 }
 function showMsg(el, text, type){ el.innerHTML = `<div class="msg ${type}">${text}</div>`; }
-function esc(s){ return (s??'').toString().replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function esc(s){ return (s??'').toString().replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
 /* ================= AUTH SCREEN ================= */
 function switchAuthTab(tab){
@@ -503,7 +503,7 @@ function renderCatalogoGrid(){
         <div class="t">${esc(t.titolo)}</div>
         <div class="m">${meta}</div>
         ${extraGemelli?`<div class="m">${extraGemelli}</div>`:''}
-        ${t.note?`<button class="ghost small" style="margin-top:4px" onclick='mostraTestoLungo(${JSON.stringify(t.titolo)}, ${JSON.stringify(t.note)})'>📝 Note</button>`:''}
+        ${t.note?`<button class="ghost small" style="margin-top:4px" data-titolo="${esc(t.titolo)}" data-nota="${esc(t.note)}" onclick="mostraTestoLungo(this.dataset.titolo, this.dataset.nota)">📝 Note</button>`:''}
       </div>
       <svg id="bc-riga-${idx}" data-ean="${esc(t.ean)}" class="barcode-svg" style="flex-shrink:0"></svg>
       <div style="width:70px;text-align:right;font-size:13px;font-weight:600;color:var(--blu)" id="subtot-${t.ean}">${t.prezzo?'€ '+(t.prezzo*qty).toFixed(2):''}</div>
@@ -964,7 +964,7 @@ async function renderTitoliAdmin(tipo, sezioneId){
           <td>${esc(t.autore||'-')}</td>
           <td>${esc(t.editore||'-')}</td>
           <td>${t.prezzo?'€ '+Number(t.prezzo).toFixed(2):'-'}</td>
-          <td>${t.note ? `<button class="ghost small" onclick='mostraTestoLungo(${JSON.stringify(t.titolo)}, ${JSON.stringify(t.note)})'>Apri</button>` : '-'}</td>
+          <td>${t.note ? `<button class="ghost small" data-titolo="${esc(t.titolo)}" data-nota="${esc(t.note)}" onclick="mostraTestoLungo(this.dataset.titolo, this.dataset.nota)">Apri</button>` : '-'}</td>
           <td>${esc(t.gemelli||'-')}</td>
           <td><button class="ghost small" onclick="eliminaTitolo('${t.id}','${tipo}','${sezioneId}')">Elimina</button></td>
         </tr>`).join('')}
