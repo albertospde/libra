@@ -133,6 +133,34 @@
   .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
   .close-x{position:absolute;top:16px;right:20px;background:transparent;color:var(--testo-lieve);font-size:20px;padding:2px 8px;}
 
+  /* HOME LIBRAIO */
+  .home-hero{margin-bottom:26px;}
+  .home-tiles{display:grid;grid-template-columns:repeat(2,1fr);gap:20px;max-width:860px;}
+  .home-tile{position:relative;overflow:hidden;border-radius:16px;padding:28px 24px;min-height:150px;display:flex;flex-direction:column;justify-content:flex-end;cursor:pointer;color:#fff;border:none;text-align:left;transition:.18s transform,.18s box-shadow;box-shadow:0 6px 18px rgba(26,45,107,.14);}
+  .home-tile:hover{transform:translateY(-3px);box-shadow:0 12px 28px rgba(26,45,107,.24);}
+  .home-tile .ico{font-size:32px;margin-bottom:10px;}
+  .home-tile .lbl{font-size:19px;font-weight:800;letter-spacing:.01em;}
+  .home-tile .sub{font-size:12.5px;font-weight:500;opacity:.85;margin-top:3px;}
+  .home-tile::after{content:'';position:absolute;inset:0;background:radial-gradient(circle at 85% -10%, rgba(255,255,255,.25), transparent 55%);pointer-events:none;}
+  .home-tile.t-giro{background:linear-gradient(135deg,#1a2d6b,#2e469e);}
+  .home-tile.t-campagna{background:linear-gradient(135deg,#00b4e8,#0087b3);}
+  .home-tile.t-proposta{background:linear-gradient(135deg,#6a4ce0,#9b7bf2);}
+  .home-tile.t-storico{background:linear-gradient(135deg,#3a4356,#5c6785);}
+  @media(max-width:640px){.home-tiles{grid-template-columns:1fr;}}
+
+  /* CAMPAGNE - card banner (largo e basso) */
+  .campagne-grid{display:grid;grid-template-columns:1fr;gap:16px;}
+  @media(min-width:860px){.campagne-grid{grid-template-columns:1fr 1fr;}}
+  .campagna-card{border:2px solid var(--grigio-line);border-radius:14px;overflow:hidden;cursor:pointer;background:#fff;transition:.15s border-color,.15s box-shadow;}
+  .campagna-card:hover{box-shadow:0 4px 14px rgba(26,45,107,.14);}
+  .campagna-card.active{border-color:var(--azzurro);box-shadow:0 4px 18px rgba(0,180,232,.25);}
+  .campagna-card .img-wrap{width:100%;aspect-ratio:16/5;background:var(--grigio-bg);overflow:hidden;}
+  .campagna-card .img-wrap img{width:100%;height:100%;object-fit:cover;display:block;}
+  .campagna-card .img-wrap.noimg{display:flex;align-items:center;justify-content:center;color:var(--testo-lieve);font-size:12.5px;}
+  .campagna-card .info{padding:12px 16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;}
+  .campagna-card .info .nome{font-weight:700;font-size:15px;color:var(--blu);}
+  .campagna-card .info .scad{font-size:12px;color:var(--testo-lieve);}
+
   /* BANNER & LOCANDINA sezione */
   .banner-sezione{width:100%;max-height:260px;object-fit:cover;border-radius:var(--radius);margin-bottom:18px;display:block;}
   .locandina-download{display:inline-flex;align-items:center;gap:8px;padding:10px 16px;background:#fff;border:1px solid var(--azzurro);color:var(--azzurro);border-radius:8px;text-decoration:none;font-size:13.5px;font-weight:600;margin-bottom:18px;}
@@ -343,7 +371,7 @@ async function initSession(session){
     document.getElementById('cart-fab').classList.remove('hidden');
     document.getElementById('chat-fab').classList.remove('hidden');
     renderLibraioNav();
-    goToLibraioView('giro');
+    goToLibraioView('home');
     subscribeChat(lib.id);
   }
 }
@@ -356,7 +384,8 @@ window.addEventListener('DOMContentLoaded', async () => {
 /* ================= NAV ================= */
 function renderLibraioNav(){
   document.getElementById('nav-links').innerHTML = `
-    <button data-v="giro" onclick="goToLibraioView('giro')">📚 Giro</button>
+    <button data-v="home" onclick="goToLibraioView('home')">🏠 Home</button>
+    <button data-v="giro" onclick="goToLibraioView('giro')">📚 Giri Vendita</button>
     <button data-v="campagna" onclick="goToLibraioView('campagna')">📢 Campagne</button>
     <button data-v="proposta" onclick="goToLibraioView('proposta')">💡 Proposte</button>
     <button data-v="storico" onclick="goToLibraioView('storico')">🕑 Storico ordini</button>
@@ -379,10 +408,42 @@ function setActiveNav(v){
 async function goToLibraioView(view){
   state.currentView = view;
   setActiveNav(view);
+  if(view === 'home') return renderLibraioHome();
   if(view === 'storico') return renderStoricoOrdini();
   if(view === 'profilo') return renderProfiloLibraio();
   state.sezioneTipo = view;
   await renderSezioneLibraio();
+}
+function renderLibraioHome(){
+  const l = state.libreria;
+  document.getElementById('main').innerHTML = `
+    <div class="home-hero">
+      <h1>Ciao, ${esc(l?.ragione_sociale || '')}</h1>
+      <div class="subtitle">Cosa vuoi consultare oggi?</div>
+    </div>
+    <div class="home-tiles">
+      <button class="home-tile t-giro" onclick="goToLibraioView('giro')">
+        <div class="ico">📚</div>
+        <div class="lbl">Giri Vendita</div>
+        <div class="sub">Cataloghi dei giri di vendita attivi</div>
+      </button>
+      <button class="home-tile t-campagna" onclick="goToLibraioView('campagna')">
+        <div class="ico">📢</div>
+        <div class="lbl">Campagne</div>
+        <div class="sub">Promozioni editoriali in corso</div>
+      </button>
+      <button class="home-tile t-proposta" onclick="goToLibraioView('proposta')">
+        <div class="ico">💡</div>
+        <div class="lbl">Proposte</div>
+        <div class="sub">Nuove uscite e proposte editoriali</div>
+      </button>
+      <button class="home-tile t-storico" onclick="goToLibraioView('storico')">
+        <div class="ico">🕑</div>
+        <div class="lbl">Storico ordini</div>
+        <div class="sub">I tuoi ordini inviati a PDE</div>
+      </button>
+    </div>
+  `;
 }
 function renderProfiloLibraio(){
   const l = state.libreria;
@@ -415,7 +476,7 @@ async function renderSezioneLibraio(){
     .order('created_at', { ascending:false });
 
   const main = document.getElementById('main');
-  const titolo = tipo==='giro' ? 'Giro' : tipo==='campagna' ? 'Campagne' : 'Proposte';
+  const titolo = tipo==='giro' ? 'Giri Vendita' : tipo==='campagna' ? 'Campagne' : 'Proposte';
   if(!sezioni || sezioni.length===0){
     main.innerHTML = `<h1>${titolo}</h1><div class="subtitle">Sezione libraio</div><div class="card empty">Nessuna sezione attiva al momento.</div>`;
     return;
@@ -425,19 +486,23 @@ async function renderSezioneLibraio(){
 
   main.innerHTML = `
     <h1>${titolo}</h1>
-    <div class="subtitle">Seleziona una sezione e aggiungi i titoli al carrello</div>
+    <div class="subtitle">${tipo==='campagna' ? 'Seleziona una campagna per vedere i titoli in promozione' : 'Seleziona una sezione e aggiungi i titoli al carrello'}</div>
     <div class="sezioni-picker" id="sezioni-picker"></div>
     <div id="materiali-sezione-libraio"></div>
     <div id="titoli-container"></div>
   `;
-  const picker = document.getElementById('sezioni-picker');
-  sezioni.forEach(s=>{
-    const chip = document.createElement('div');
-    chip.className = 'sezione-chip' + (s.id===state.sezioneAttiva ? ' active':'');
-    chip.innerHTML = `${esc(s.nome)}${s.data_scadenza ? `<span class="scad">scad. ${fmtDate(s.data_scadenza)}</span>`:''}`;
-    chip.onclick = () => { state.sezioneAttiva = s.id; state.catalogoPage = 1; renderSezioneLibraio(); };
-    picker.appendChild(chip);
-  });
+  if(tipo === 'campagna'){
+    await renderCampagnePicker(sezioni);
+  } else {
+    const picker = document.getElementById('sezioni-picker');
+    sezioni.forEach(s=>{
+      const chip = document.createElement('div');
+      chip.className = 'sezione-chip' + (s.id===state.sezioneAttiva ? ' active':'');
+      chip.innerHTML = `${esc(s.nome)}${s.data_scadenza ? `<span class="scad">scad. ${fmtDate(s.data_scadenza)}</span>`:''}`;
+      chip.onclick = () => { state.sezioneAttiva = s.id; state.catalogoPage = 1; renderSezioneLibraio(); };
+      picker.appendChild(chip);
+    });
+  }
   renderMaterialiSezioneLibraio(tipo, state.sezioneAttiva);
 
   // ordine di inserimento (created_at), non modificabile/ordinabile dall'utente
@@ -469,6 +534,30 @@ async function renderSezioneLibraio(){
   <!-- barcode input riprende focus automaticamente per scansioni rapide consecutive -->
   `;
   renderCatalogoGrid();
+}
+/* Card banner larghe/basse per le campagne, al posto delle pillole standard */
+async function renderCampagnePicker(sezioni){
+  const picker = document.getElementById('sezioni-picker');
+  picker.className = 'campagne-grid';
+  picker.innerHTML = sezioni.map(s => `
+    <div class="campagna-card ${s.id===state.sezioneAttiva ? 'active':''}" data-id="${s.id}">
+      <div class="img-wrap noimg" id="campagna-img-${s.id}">caricamento...</div>
+      <div class="info">
+        <span class="nome">${esc(s.nome)}</span>
+        <span class="scad">${s.data_scadenza ? 'Scadenza inserimento: '+fmtDate(s.data_scadenza) : 'Nessuna scadenza'}</span>
+      </div>
+    </div>
+  `).join('');
+  picker.querySelectorAll('.campagna-card').forEach(card=>{
+    card.onclick = () => { state.sezioneAttiva = card.dataset.id; state.catalogoPage = 1; renderSezioneLibraio(); };
+  });
+  await Promise.all(sezioni.map(async s=>{
+    const m = await getMaterialiSezione('campagna', s.id);
+    const box = document.getElementById(`campagna-img-${s.id}`);
+    if(!box) return;
+    if(m.banner){ box.classList.remove('noimg'); box.innerHTML = `<img src="${m.banner.url}" alt="${esc(s.nome)}">`; }
+    else { box.innerHTML = '🖼 Nessuna immagine caricata'; }
+  }));
 }
 function toggleEditoreFiltro(ed){
   const i = state.catalogoEditoriSel.indexOf(ed);
@@ -993,7 +1082,7 @@ async function renderMaterialiSezioneLibraio(sezioneTipo, sezioneId){
   if(!cont || !sezioneId) return;
   const m = await getMaterialiSezione(sezioneTipo, sezioneId);
   let html = '';
-  if(m.banner) html += `<img src="${m.banner.url}" alt="Banner" class="banner-sezione">`;
+  if(m.banner && sezioneTipo !== 'campagna') html += `<img src="${m.banner.url}" alt="Banner" class="banner-sezione">`;
   if(m.locandina) html += `<a href="${m.locandina.url}" target="_blank" rel="noopener noreferrer" download="${esc(m.locandina.nome_file||'locandina.pdf')}" class="locandina-download">📄 Scarica locandina</a>`;
   cont.innerHTML = html;
 }
