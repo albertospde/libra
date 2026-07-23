@@ -285,7 +285,7 @@ const supabaseAction = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_
 // storageKey dedicato per non entrare in conflitto con la sessione "sb" sopra.
 const SUPABASE_URL_RPN = "https://tdflwenlylhctxssatax.supabase.co";
 const SUPABASE_ANON_KEY_RPN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRkZmx3ZW5seWxoY3R4c3NhdGF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYzMzgyNzYsImV4cCI6MjA5MTkxNDI3Nn0.l35qEL7LOvyYuI1McQlVqj4vbyTqmlevcmqWbTGYi2Q";
-const sbRpn = window.supabase.createClient(SUPABASE_URL_RPN, SUPABASE_ANON_KEY_RPN, { auth: { storageKey: 'sb-rpn-auth' } });
+const sbRpn = window.supabase.createClient(SUPABASE_URL_RPN, SUPABASE_ANON_KEY_RPN);
 const RPN_PROXY_BASE = "https://tdflwenlylhctxssatax.supabase.co/functions/v1/rpn-sync";
 
 /* ================= STATE ================= */
@@ -1282,9 +1282,9 @@ async function renderRpnConnectWidget(){
   } else {
     state.rpnConnected = false;
     wrap.innerHTML = `<div>
-      <p style="margin:0 0 8px;font-size:13px;color:var(--testo-lieve)">Per caricare gli ordini direttamente su RPN accedi con il tuo account BookUp (lo stesso che usi per Prenota). Va fatto una sola volta per browser.</p>
+      <p style="margin:0 0 8px;font-size:13px;color:var(--testo-lieve)">Accedi con la tua utenza PDE (la stessa di PDE Hub, BookUp, GiroManager). Se sei già loggato in un'altra app PDE in questo browser, potresti risultare già collegato in automatico.</p>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <input id="rpn-login-email" type="email" placeholder="Email BookUp" style="flex:1;min-width:200px">
+        <input id="rpn-login-email" type="email" placeholder="Email PDE" style="flex:1;min-width:200px">
         <input id="rpn-login-pw" type="password" placeholder="Password" style="flex:1;min-width:160px">
         <button class="primary" onclick="connectRpnSession()">Accedi</button>
       </div>
