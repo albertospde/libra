@@ -598,7 +598,6 @@ function toggleEditoreFiltro(ed){
 }
 const TITOLI_PER_PAGINA = 15;
 function renderCatalogoGrid(){
-  const isGiro = state.sezioneTipo === 'giro';
   const q = (state.catalogoSearch||'').trim().toLowerCase();
   const sel = state.catalogoEditoriSel||[];
   const filtrati = (state.catalogoTitoli||[]).filter(t=>{
@@ -619,9 +618,7 @@ function renderCatalogoGrid(){
   grid.innerHTML = `<div class="titoli-grid">${titoli.map((t,idx)=>{
     const inCart = state.cart.find(c=>c.ean===t.ean);
     const qty = inCart ? inCart.quantita : 0;
-    const iconaHtml = isGiro
-      ? `<button class="ghost small" title="Apri PDF" onclick="window.open('${PDF_BUCKET_URL}${encodeURIComponent(t.ean)}.pdf','_blank')">📄</button>`
-      : `<img src="${coverUrl(t.ean)}" alt="" style="width:38px;height:54px;object-fit:cover;border-radius:4px;box-shadow:0 1px 3px rgba(0,0,0,.25);cursor:zoom-in" onclick="mostraCopertinaGrande('${t.ean}', ${JSON.stringify(t.titolo).replace(/"/g,'&quot;')})" onerror="this.replaceWith(Object.assign(document.createElement('span'),{textContent:'📕',style:'font-size:26px'}))">`;
+    const iconaHtml = `<img src="${coverUrl(t.ean)}" data-ean="${esc(t.ean)}" loading="lazy" alt="" style="width:38px;height:54px;object-fit:cover;border-radius:4px;box-shadow:0 1px 3px rgba(0,0,0,.25);cursor:zoom-in" onclick="mostraCopertinaGrande('${t.ean}', ${JSON.stringify(t.titolo).replace(/"/g,'&quot;')})" onload="coverLoad(this,26)" onerror="coverFallback(this,26)">`;
     const meta = [
       'EAN '+esc(t.ean),
       t.autore ? esc(t.autore) : null,
@@ -661,7 +658,7 @@ function mostraCopertinaGrande(ean, titolo){
   overlay.className = 'modal-overlay';
   overlay.onclick = ()=>overlay.remove();
   overlay.innerHTML = `<div style="max-width:90vw;max-height:90vh;text-align:center">
-    <img src="${coverUrl(ean)}" alt="" style="max-width:100%;max-height:80vh;border-radius:8px;box-shadow:0 10px 40px rgba(0,0,0,.4)">
+    <img src="${coverUrl(ean)}" data-ean="${esc(ean)}" alt="" style="max-width:100%;max-height:80vh;border-radius:8px;box-shadow:0 10px 40px rgba(0,0,0,.4)" onload="coverLoad(this,80)" onerror="coverFallback(this,80)">
     <div style="color:#fff;margin-top:10px;font-size:14px">${esc(titolo)}</div>
   </div>`;
   document.body.appendChild(overlay);
@@ -1078,8 +1075,20 @@ async function eliminaSezione(tabella, id){
   renderAdminSezioniList();
 }
 
-const PDF_BUCKET_URL = 'https://pvsoijmopdqozvutgtdm.supabase.co/storage/v1/object/public/giro-pdf/';
-function coverUrl(ean){ return `https://www.ibs.it/images/${ean}_0_0_0_300_75.jpg`; }
+// Copertine dai CDN librerie, senza storage: si prova laFeltrinelli, poi IBS;
+// se nessuno ha l'immagine (es. novità non ancora pubblicate) resta il segnaposto.
+const COVER_SOURCES = [
+  ean => `https://www.lafeltrinelli.it/images/${ean}_0_0_424_0_75.jpg`,
+  ean => `https://www.ibs.it/images/${ean}_0_0_0_300_75.jpg`,
+];
+function coverUrl(ean){ return COVER_SOURCES[0](ean); }
+function coverFallback(img, iconSize){
+  const next = Number(img.dataset.src||0) + 1;
+  if(next < COVER_SOURCES.length){ img.dataset.src = next; img.src = COVER_SOURCES[next](img.dataset.ean); return; }
+  img.replaceWith(Object.assign(document.createElement('span'),{textContent:'📕',title:'Copertina non ancora disponibile',style:'font-size:'+(iconSize||26)+'px'}));
+}
+// Le immagini "pixel" restituite da alcuni CDN quando manca la copertina contano come mancanti
+function coverLoad(img, iconSize){ if(img.naturalWidth < 20) coverFallback(img, iconSize); }
 
 /* ================= MATERIALI SEZIONE (banner + locandina) ================= */
 const BUCKET_MATERIALI = 'materiali-sezione';
@@ -1178,16 +1187,12 @@ async function renderTitoliAdmin(tipo, sezioneId){
   const { data: titoli } = await sb.from('titoli').select('*').eq('sezione_tipo', tipo).eq('sezione_id', sezioneId).order('created_at', { ascending:true });
   const cont = document.getElementById('titoli-admin-'+sezioneId);
   if(!cont) return;
-  const isGiro = tipo === 'giro';
   cont.innerHTML = `
     <table>
       <thead><tr><th></th><th>EAN</th><th>Titolo</th><th>Autore</th><th>Editore</th><th>Prezzo</th><th>Note</th><th>Gemelli</th><th></th></tr></thead>
       <tbody>
         ${(titoli||[]).map(t=>`<tr>
-          <td>${isGiro
-            ? `<button class="ghost small" title="Apri PDF" onclick="window.open('${PDF_BUCKET_URL}${encodeURIComponent(t.ean)}.pdf','_blank')">📄</button>`
-            : `<img src="${coverUrl(t.ean)}" alt="" style="width:28px;height:40px;object-fit:cover;border-radius:3px;box-shadow:0 1px 3px rgba(0,0,0,.25)" onerror="this.replaceWith(Object.assign(document.createElement('span'),{textContent:'📕',style:'font-size:20px'}))">`
-          }</td>
+          <td><img src="${coverUrl(t.ean)}" data-ean="${esc(t.ean)}" loading="lazy" alt="" style="width:28px;height:40px;object-fit:cover;border-radius:3px;box-shadow:0 1px 3px rgba(0,0,0,.25)" onload="coverLoad(this,20)" onerror="coverFallback(this,20)"></td>
           <td>${esc(t.ean)}</td>
           <td>${esc(t.titolo)}</td>
           <td>${esc(t.autore||'-')}</td>
@@ -1210,10 +1215,7 @@ async function renderTitoliAdmin(tipo, sezioneId){
         </tr>
       </tbody>
     </table>
-    ${isGiro
-      ? `<p style="font-size:12px;color:var(--testo-lieve);margin:8px 0 0">Il tasto 📄 apre il PDF corrispondente. Carica i PDF su Supabase → Storage → bucket <b>giro-pdf</b>, rinominandoli esattamente come l'EAN (es. <code>9788807970207.pdf</code>).</p>`
-      : `<p style="font-size:12px;color:var(--testo-lieve);margin:8px 0 0">La copertina viene recuperata automaticamente da laFeltrinelli/IBS in base all'EAN. Se non è disponibile online, appare un'icona segnaposto.</p>`
-    }
+    <p style="font-size:12px;color:var(--testo-lieve);margin:8px 0 0">La copertina viene recuperata automaticamente da laFeltrinelli/IBS in base all'EAN. Se non è ancora disponibile online (tipico delle novità), appare un'icona segnaposto e la copertina compare da sola appena pubblicata.</p>
     <p style="font-size:12px;color:var(--testo-lieve);margin:4px 0 0">Il campo <b>Cedola</b> non è mostrato in tabella (né qui né dal libraio): si popola solo via import Excel, e viene usato in automatico nell'export per RPN.</p>
   `;
 }
