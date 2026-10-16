@@ -188,6 +188,9 @@
   .admin-materiali-preview{font-size:12px;color:var(--testo-lieve);margin-top:5px;}
   .admin-materiali-preview a{color:var(--azzurro);}
 </style>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="https://albertospde.github.io/pde-hub/assets/pde-app-logo.css">
+<style>.pde-logo-box{background:#fff;border-radius:10px;padding:7px 14px;display:inline-flex;align-items:center;line-height:0}</style>
 </head>
 <body>
 
@@ -197,7 +200,7 @@
 <div id="auth-screen">
   <div class="auth-box">
     <div class="auth-logo">
-      <div class="logo-frame"><img class="main-logo" src="pde_libra_logo.png" alt="PDE Libra"></div>
+      <div class="logo-frame"><div class="pde-logo" role="img" aria-label="PDE Libra" style="font-size:24px"><div class="pl-text"><div class="pl-name"><b>PDE</b><span>LIBRA</span></div><div class="pl-tag"><i class="c0">SCOPRI.</i><em>I</em><i class="c1">ORDINA.</i><em>I</em><i class="c2">RICEVI.</i></div></div><div class="pl-wing"></div></div></div>
     </div>
     <div class="auth-tabs">
       <button id="tab-login" class="active" onclick="switchAuthTab('login')">Accedi</button>
@@ -232,7 +235,7 @@
 <!-- ======================= APP SCREEN ======================= -->
 <div id="app-screen" class="hidden">
   <div id="sidebar">
-    <div class="side-logo"><img src="pde_libra_logo.png" alt="PDE Libra"></div>
+    <div class="side-logo"><span class="pde-logo-box"><div class="pde-logo" role="img" aria-label="PDE Libra" style="font-size:13px"><div class="pl-text"><div class="pl-name"><b>PDE</b><span>LIBRA</span></div><div class="pl-tag"><i class="c0">SCOPRI.</i><em>I</em><i class="c1">ORDINA.</i><em>I</em><i class="c2">RICEVI.</i></div></div><div class="pl-wing"></div></div></span></div>
     <div class="side-powered">powered by <img src="logo_pde.png" alt="PDE" onerror="this.style.display='none'"></div>
     <nav id="nav-links"></nav>
     <div class="who">
